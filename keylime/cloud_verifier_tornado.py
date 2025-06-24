@@ -14,6 +14,9 @@ import tornado.ioloop
 import tornado.netutil
 import tornado.process
 import tornado.web
+
+import paho.mqtt.publish as publish
+
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
@@ -1571,12 +1574,31 @@ async def invoke_get_quote(
                 agentAttestState,
             )
             if not failure:
+                mqtt_payload = {
+                    "uuid": agent["agent_id"],
+                    "trusted": True
+                }
                 if agent["provide_V"]:
                     asyncio.ensure_future(process_agent(agent, states.PROVIDE_V))
                 else:
                     asyncio.ensure_future(process_agent(agent, states.GET_QUOTE))
             else:
+                mqtt_payload = {
+                    "uuid": agent["agent_id"],
+                    "trusted": False
+                }
                 asyncio.ensure_future(process_agent(agent, states.INVALID_QUOTE, failure))
+            
+            try:
+                publish.single(
+                   topic="MPU_client_status",
+                   payload=json.dumps(mqtt_payload),
+                   hostname="localhost",
+                   port=1883
+                )
+                logger.info(f"[MQTT] Published attestation result for {agent['agent_id']}: {mqtt_payload['trusted']}")
+            except Exception as e:
+                logger.warning(f"[MQTT] Failed to publish attestation result: {e}")
 
             # store the attestation state
             store_attestation_state(agentAttestState)
