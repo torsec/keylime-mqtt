@@ -9,9 +9,9 @@ def on_message(client, userdata, msg):
     try:
         payload = json.loads(msg.payload.decode())
         uuid = payload["uuid"]
-        trusted = payload["trusted"]
+        trusted = payload["status"]
 
-        status = "✅ TRUSTED" if trusted else "❌ UNTRUSTED"
+        status = "✅ TRUSTED" if trusted == "OK" else "❌ UNTRUSTED"
         print(f"[MQTT] Agent {uuid}: {status}")
 
     except json.JSONDecodeError:
