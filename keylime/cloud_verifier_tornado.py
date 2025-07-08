@@ -1576,7 +1576,7 @@ async def invoke_get_quote(
             if not failure:
                 mqtt_payload = {
                     "uuid": agent["agent_id"],
-                    "trusted": True
+                    "status": "OK"
                 }
                 if agent["provide_V"]:
                     asyncio.ensure_future(process_agent(agent, states.PROVIDE_V))
@@ -1585,7 +1585,7 @@ async def invoke_get_quote(
             else:
                 mqtt_payload = {
                     "uuid": agent["agent_id"],
-                    "trusted": False
+                    "status": "NOK"
                 }
                 asyncio.ensure_future(process_agent(agent, states.INVALID_QUOTE, failure))
             
@@ -1596,7 +1596,7 @@ async def invoke_get_quote(
                    hostname="localhost",
                    port=1883
                 )
-                logger.info(f"[MQTT] Published attestation result for {agent['agent_id']}: {mqtt_payload['trusted']}")
+                logger.info(f"[MQTT] Published attestation result for {agent['agent_id']}: {mqtt_payload['status']}")
             except Exception as e:
                 logger.warning(f"[MQTT] Failed to publish attestation result: {e}")
 
