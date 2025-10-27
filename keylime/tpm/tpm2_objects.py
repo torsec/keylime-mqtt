@@ -41,6 +41,7 @@ TPM_ALG_SHA512 = 0x000D
 
 TPM_ALG_AES = 0x0006
 TPM_ALG_CFB = 0x0043
+TPM_ALG_MLDSA = 0x0046
 
 TPM_ALG_RSASSA = 0x0014
 TPM_ALG_RSAPSS = 0x0016
@@ -281,6 +282,8 @@ def pubkey_parms_from_tpm2b_public(
     # Extract type, nameAlg, and [objectAttributes] (we don't care about the
     #  latter)
     (alg_type, name_alg, _) = struct.unpack(">HHI", public[0:8])
+
+    print('The public material is: ' + str(alg_type) + ' ' +  str(name_alg) + '\n')
     # Ignore the authPolicy
     (_, sym_parms) = _extract_tpm2b(public[8:])
     # Ignore the non-asym-alg parameters
@@ -328,6 +331,10 @@ def pubkey_parms_from_tpm2b_public(
 
         ecc_numbers = EllipticCurvePublicNumbers(bx, by, curve)
         return ecc_numbers.public_key(backend=default_backend()), name_alg
+
+    if alg_type == TPM_ALG_MLDSA:
+        print('MLDSA  case\n')
+        print('sym parms: ' + str(asym_parms) + '\nsym_alg: ' + str(sym_alg) + '\nscheme_alg: ' + str(scheme_alg) + '\n')
 
     raise ValueError(f"Invalid tpm2b_public type: {alg_type}")
 
