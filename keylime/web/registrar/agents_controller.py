@@ -28,16 +28,37 @@ class AgentsController(Controller):
 
     # POST /v2[.:minor]/agents/[:agent_id]
     def create(self, agent_id, **params):
+        #print("I am in the POST api. Before MakeCredential\n")
         agent = RegistrarAgent.get(agent_id) or RegistrarAgent.empty()  # type: ignore[no-untyped-call]
         agent.update({"agent_id": agent_id, **params})
+        print("ARRIVO questi sono i param dall'agent:\n")
+#        print(agent)
+#        print("\nQuesto e' l'uuid:\n")
+#        print(agent.agent_id)
+
+#        print("\nQuesto e' l'aik_tpm (bytestring):\n")
+#        print(agent.aik_tpm)
+#        print("\nQuesto e' l'aik_tpm (in hexadecimal):\n")
+#        print(''.join(f'\\x{byte:02x}' for byte in agent.aik_tpm))
+
+#        print("\nQuesto e' l'ek_tpm (bytestring):\n")
+#        print(agent.ek_tpm)
+#        print("\nQuesto e' l'ek_tpm (in hexadecimal):\n")
+#        print(''.join(f'\\x{byte:02x}' for byte in agent.ek_tpm))
+
+#        print("\n\n")
+
         challenge = agent.produce_ak_challenge()
+        #print("I arrive after challenge\n")
 
-        if not challenge or not agent.changes_valid:
-            self.log_model_errors(agent, logger)
-            self.respond(400, "Could not register agent with invalid data")
-            return
 
+        #if not challenge or not agent.changes_valid:
+        #    self.log_model_errors(agent, logger)
+        #    self.respond(400, "Could not register agent with invalid data")
+        #    return
+        print("Do I arrive here?")
         agent.commit_changes()
+        print("Do I arrive here?(after commit)")
         self.respond(200, "Success", {"blob": challenge})
 
     # DELETE /v2[.:minor]/agents/:agent_id/

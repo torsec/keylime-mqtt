@@ -283,10 +283,13 @@ class RegistrarAgent(PersistableModel):
 
         # Log info about received EK or IAK/IDevID
         self._log_root_identity()
+        #print("after _log_root_identity\n")
         # Verify EK as valid
         self._check_ek()
+        #print("after _ek_check\n")
         # Verify IAK/IDevID as valid and trusted
         self._check_iak_idevid(data.get("iak_attest"), data.get("iak_sign"))
+        #print("after _check_iak_idevid\n")
         # Ensure either an EK or IAK/IDevID is present, depending on configuration
         self._check_root_identity_presence()
         # Handle certificates which are not fully compliant with ASN.1 DER
@@ -301,11 +304,13 @@ class RegistrarAgent(PersistableModel):
         self._prepare_status_flags()
         # Increment number of registrations if appropriate
         self._prepare_regcount()
+        print("Go here\n")
 
     def produce_ak_challenge(self):
         if not self.ek_tpm or not self.aik_tpm:
             return None
 
+        print("Dentro produce_ak_challenge")
         try:
             result = Tpm.encrypt_aik_with_ek(self.agent_id, self.ek_tpm, self.aik_tpm)
 
@@ -315,6 +320,7 @@ class RegistrarAgent(PersistableModel):
         except ValueError:
             return None
 
+        #print("Qua non ci entro se ho errore in encrypt_aik_with_ek")
         (challenge, key) = result
         self.change("key", key)
         return challenge.decode("utf-8")
