@@ -267,10 +267,13 @@ def _curve_from_curve_id(cid: int) -> EllipticCurve:
 
 def _extract_tpm2b(vals: bytes) -> Tuple[bytes, bytes]:
     (length,) = struct.unpack(">H", vals[0:2])
-    print('The length is: ' + length + '\n')
+    #print('The length is: ', length, '\n')          # 2 bytes to store the length
+    #print('The length (in _extract_tpm2b) is: ' + str(length) + '\n')
     # Ignore the length itself when returning
     vals = vals[2:]
     # Return first the currect buffer, and then the rest
+    #print('First part:\n' + str(vals[:length]))
+    #print('\nSecond part:\n' + str(vals[length:]))
     return (vals[:length], vals[length:])
 
 
@@ -278,20 +281,24 @@ def pubkey_parms_from_tpm2b_public(
     public: bytes,
 ) -> Tuple[pubkey_type, int]:
 
-    print('The very first public material is:\n\n' + str(public) + '\n\nAnd its length is: ' + str(len(str(public))))
+    #print('The very first public material is:\n\n' + str(public) + '\n\nAnd its length is: ' + str(len(str(public))))
+    #print(len(public))
     (public, rest) = _extract_tpm2b(public)
+    #print('The public is:\n\n' + str(public) + '\n\nThe rest is:' + str(rest))
     if len(rest) != 0:
         raise ValueError("More in tpm2b_public than tpmt_public")
     # Extract type, nameAlg, and [objectAttributes] (we don't care about the
     #  latter)
-    print('The public material after:\n\n' + str(public))
+    #print('The public material after:\n\n' + str(public))
     (alg_type, name_alg, _) = struct.unpack(">HHI", public[0:8])            # > ---> means "Big Endian". H ---> 2 byte. I ---> 4 byte.
     
     # alg_type --> 2 byte. name_alg --> 2 byte.
 
-    print('The algorithm for public/private key is: ' + str(alg_type) + '\nThe hashing algorithm is: ' +  str(name_alg) + '\n')
+    #print('The algorithm for public/private key is: ' + str(alg_type) + '\nThe hashing algorithm is: ' +  str(name_alg) + '\n')
     # Ignore the authPolicy
     (_, sym_parms) = _extract_tpm2b(public[8:])
+    #print('The sym parms are:\n\n' + str(sym_parms) + '\n\nAnd its length is: ')
+    #print(len(sym_parms))
     # Ignore the non-asym-alg parameters
     (sym_alg,) = struct.unpack(">H", sym_parms[0:2])
     (scheme_alg,) = struct.unpack(">H", sym_parms[2:4])
@@ -302,10 +309,12 @@ def pubkey_parms_from_tpm2b_public(
         to_skip = to_skip + 2
     if scheme_alg != TPM2_ALG_NULL:
         to_skip = to_skip + 2
+    #print('The to_skip variable is: ' + str(to_skip) + '\n\n')
     asym_parms = sym_parms[to_skip:]
 
-    print('Asym parms: ' + str(asym_parms) + '\nAnd its lenght is: ' + str(len(str(asym_parms))))
-    print('\nsym_alg: ' + str(sym_alg) + '\nBits of the Asymmetric Algorithm: ' + str(scheme_alg) + '\n')
+    #print('Asym parms: ' + str(asym_parms) + '\nAnd its lenght is: ')
+    #print(len(asym_parms))
+    #print('\nsym_alg: ' + str(sym_alg) + '\nBits of the Asymmetric Algorithm: ' + str(scheme_alg) + '\n')
 
     # Handle fields
     if alg_type == TPM_ALG_RSA:
@@ -343,6 +352,7 @@ def pubkey_parms_from_tpm2b_public(
 
     if alg_type == TPM_ALG_MLDSA:
         print('MLDSA  case\n')
+        return public, name_alg
 
     raise ValueError(f"Invalid tpm2b_public type: {alg_type}")
 
@@ -453,12 +463,17 @@ def get_tpm2b_public_name(public: bytes) -> str:
     # We get a TPM2B_PUBLIC, but don't care about the buffer portion.
     # Thus we drop the first two bytes (the uint16 size)
     (tpmt_public, rest) = _extract_tpm2b(public)
+    #print("\nThe tpmt_public is:\n")
+    #print(tpmt_public)
     if len(rest) != 0:
         raise ValueError("Invalid tpm2b_public")
     # The first two bytes are type, those are not critical for computing the
     # of Name other than that they are used in the computation.
     # Next two are nameAlg, which are critical.
     (nameAlg,) = struct.unpack(">H", tpmt_public[2:4])
+    #print("\nThe nameAlg is:\n")                    # This is the name (integer) of the Hash algorithm
+    #print(int(nameAlg))
+    #print(nameAlg)
     # Compute the H(TPMT_Public) portion
     hasher = _get_hasher_from_name_alg(int(nameAlg))
     hasher.update(tpmt_public)

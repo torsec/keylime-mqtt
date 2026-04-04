@@ -52,6 +52,8 @@ from cryptography.hazmat.primitives.ciphers import Cipher, modes
 from cryptography.hazmat.primitives.kdf.concatkdf import ConcatKDFHash
 from cryptography.hazmat.primitives.kdf.kbkdf import KBKDFHMAC, CounterLocation, Mode
 
+import oqs
+
 from keylime import config, crypto, json, keylime_logging
 from keylime.tpm import tpm2_objects
 
@@ -281,8 +283,19 @@ def makecredential(ek_tpm: bytes, challenge: bytes, aik_name: bytes) -> bytes:
     challenge: random 'password'
     aik_name: name of the object (AIK)
     """
+    #print("Arrived at makecredential\n\n")
+    #print("\nThe ek_tpm is try:\n")
+    #print(ek_tpm)
+    #print("\nThe challenge is:\n")
+    #print(challenge)
+    #print("\nThe aik_name is:\n")
+    #print(aik_name)
+
+
+    #print("\nA pubkey_parms_from_tpm2b_public passo ek_tpm e devo ritornare la public_key e l'hash_alg\n")
     public_key, hash_alg = tpm2_objects.pubkey_parms_from_tpm2b_public(ek_tpm)
 
+    #print("\nI am in makecredential public_key is: ", public_key, " and hash_alg is: ", hash_alg, "\n");
     hashfunc = tpm2_objects.HASH_FUNCS.get(hash_alg)
     if not hashfunc:
         raise ValueError(f"Unsupported hash with id {hash_alg:#x} in signature blob")
@@ -296,8 +309,12 @@ def makecredential(ek_tpm: bytes, challenge: bytes, aik_name: bytes) -> bytes:
         )
     elif isinstance(public_key, EllipticCurvePublicKey):
         random, secret = crypt_secret_encrypt_ecc(public_key, hashfunc)
+    #elif isinstance(public_key, MldsaPublicKey):
     else:
-        raise ValueError(f"Unsupported public key type {type(public_key)} for makecredential")
+        #hdr
+        secret = struct.pack(">II", 0xBADCC0DE, 1)
+        return struct.pack(">II", 0xBADCC0DE, 1)
+        #raise ValueError(f"Unsupported public key type {type(public_key)} for makecredential")
 
     credentialblob = secret_to_credential(challenge, aik_name, random, ek_tpm, hashfunc)
 

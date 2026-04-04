@@ -29,19 +29,27 @@ class Tpm:
             return None
 
         aik_name = tpm2_objects.get_tpm2b_public_name(aik_tpm)
+        #print("\nget_tpm2b_public_name works: " + aik_name + "\n")      # OSS: Returned as hex-encoded, since that's the way we pass it onwards
 
         try:
             # write out the challenge
             challenge_str = tpm_util.random_password(32)
             challenge = challenge_str.encode()
 
+            logger.info("The challenge is: %s", challenge_str)
+
             logger.info("Encrypting AIK with EK for UUID %s", uuid)
 
             # read in the aes key
             key = base64.b64encode(challenge).decode("utf-8")
+            print("\nThe aes key is: " + key + "\n")
 
             credentialblob = tpm_util.makecredential(ek_tpm, challenge, bytes.fromhex(aik_name))
             keyblob = base64.b64encode(credentialblob)
+            #keyblob = 0
+            #keyblob = struct.pack(">II", 0xBADCC0DE, 1)
+            #keyblob = base64.b64encode(keyblob)
+
 
         except Exception:
             logger.exception("Error encrypting AIK with EK")
