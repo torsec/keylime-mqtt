@@ -126,6 +126,8 @@ class Tenant:
             "tenant", is_client=True, logger=logger
         )
 
+        #print('IP del agent: ', self.agent_ip, '\n\n')
+
         if not self.enable_agent_mtls:
             logger.warning(
                 "Warning: agent mTLS is currently disabled, keys will be sent in the clear! This should only be used for testing."
@@ -237,6 +239,8 @@ class Tenant:
                         self.agent_fid_str,
                     )
                     tls_context = None
+                    print("Il tls context e': ", tls_context, "\n")
+                    print("IP dell'agent e': ", self.agent_ip, "\n")
                 else:
                     # Store the agent self-signed certificate as a string
                     self.verify_custom = self.registrar_data["mtls_cert"]

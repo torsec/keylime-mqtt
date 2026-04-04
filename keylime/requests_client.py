@@ -49,6 +49,7 @@ class RequestsClient:
         return self.session.head(self.base_url + url, **kwargs)
 
     def get(self, url: str, **kwargs: Any) -> requests.Response:
+        print("L'URL del get e': ", self.base_url)
         return self.session.get(self.base_url + url, **kwargs)
 
     def post(self, url: str, **kwargs: Any) -> requests.Response:
