@@ -43,6 +43,8 @@ from keylime.failure import MAX_SEVERITY_LABEL, Component, Event, Failure, set_s
 from keylime.ima import ima
 from keylime.mba import mba
 
+import datetime
+
 logger = keylime_logging.init_logging("verifier")
 
 GLOBAL_POLICY_CACHE: Dict[str, Dict[str, str]] = {}
@@ -1488,7 +1490,7 @@ async def update_agent_api_version(agent: Dict[str, Any], timeout: float = 60.0)
 
 
 async def invoke_get_quote(
-    agent: Dict[str, Any], mb_policy: Optional[str], runtime_policy: str, need_pubkey: bool, timeout: float = 60.0
+    agent: Dict[str, Any], mb_policy: Optional[str], runtime_policy: str, need_pubkey: bool, timeout: float = 60.0, ct = None
 ) -> None:
     failure = Failure(Component.INTERNAL, ["verifier"])
 
@@ -1573,6 +1575,13 @@ async def invoke_get_quote(
                 json_response["results"],
                 agentAttestState,
             )
+            # Receiving the attestation outcome
+            end_t = datetime.datetime.now()
+            print("Correct end current time:", end_t)
+            #ts = ct.timestamp()
+            #print("Correct end timestamp:", ts)
+            print("The time passed for the VALID Quote is: ", end_t - ct, "\n")
+
             if not failure:
                 mqtt_payload = {
                     "uuid": agent["agent_id"],
@@ -1588,6 +1597,13 @@ async def invoke_get_quote(
                     "status": "NOK"
                 }
                 asyncio.ensure_future(process_agent(agent, states.INVALID_QUOTE, failure))
+                # Receiving the attestation outcome
+                end_inv_t = datetime.datetime.now()
+                print("Invalid Quote current time:", end_inv_t)
+                #ts = ct.timestamp()
+                #print("Invalid Quote end timestamp:", ts)
+                print("The time passed for the NOT VALID Quote is: ", end_inv_t - ct, "\n")
+   
             
             try:
                 publish.single(
@@ -1861,14 +1877,41 @@ async def process_agent(
                 logger.warning("Agent %s failed, stopping polling", agent["agent_id"])
                 return
 
-            await invoke_get_quote(agent, mb_policy, runtime_policy, False, timeout=timeout)
+            # Receiving the attestation outcome
+            start_t = datetime.datetime.now()
+            print("\nStart current time:", start_t)
+            #ts = ct.timestamp()
+            #print("Start timestamp:", ts)
+
+            await invoke_get_quote(agent, mb_policy, runtime_policy, False, timeout=timeout, ct=start_t)
+            # Receiving the attestation outcome
+            ct = datetime.datetime.now()
+            #print("current time:", ct)
+            ts = ct.timestamp()
+            #print("timestamp:", ts)
+
+
             return
 
         # if new, get a quote
         if main_agent_operational_state == states.START and new_operational_state == states.GET_QUOTE:
             agent["num_retries"] = 0
             agent["operational_state"] = states.GET_QUOTE
-            await invoke_get_quote(agent, mb_policy, runtime_policy, True, timeout=timeout)
+            
+            # Starting attestation request
+            start_t = datetime.datetime.now()
+            print("\nStart current time:", start_t)
+            #ts = ct.timestamp()
+            #print("Start timestamp:", ts)
+
+            await invoke_get_quote(agent, mb_policy, runtime_policy, True, timeout=timeout, ct=start_t)
+        
+            # Receiving the attestation outcome
+            ct = datetime.datetime.now()
+            #print("current time:", ct)
+            ts = ct.timestamp()
+            #print("timestamp:", ts)
+
             return
 
         if main_agent_operational_state == states.GET_QUOTE and new_operational_state == states.PROVIDE_V:
@@ -1889,15 +1932,38 @@ async def process_agent(
             interval = config.getfloat("verifier", "quote_interval")
             agent["operational_state"] = states.GET_QUOTE
             if interval == 0:
-                await invoke_get_quote(agent, mb_policy, runtime_policy, False, timeout=timeout)
+                # Receiving the attestation outcome
+                start_t = datetime.datetime.now()
+                print("\nStart current time:", start_t)
+                #ts = ct.timestamp()
+                #print("Start timestamp:", ts)
+
+                await invoke_get_quote(agent, mb_policy, runtime_policy, False, timeout=timeout, ct=start_t)
+                # Receiving the attestation outcome
+                ct = datetime.datetime.now()
+                #print("current time:", ct)
+                ts = ct.timestamp()
+                #print("timestamp:", ts)
+
             else:
                 logger.debug(
                     "Setting up callback to check agent ID %s again in %f seconds", agent["agent_id"], interval
                 )
+                # Receiving the attestation outcome
+                start_t = datetime.datetime.now()
+                print("\nStart current time:", start_t)
+                #ts = ct.timestamp()
+                #print("Start timestamp:", ts)
 
                 pending = tornado.ioloop.IOLoop.current().call_later(
-                    interval, invoke_get_quote, agent, mb_policy, runtime_policy, False, timeout=timeout  # type: ignore  # due to python <3.9
+                    interval, invoke_get_quote, agent, mb_policy, runtime_policy, False, timeout=timeout, ct=start_t  # type: ignore  # due to python <3.9
                 )
+                # Receiving the attestation outcome
+                ct = datetime.datetime.now()
+                #print("current time:", ct)
+                ts = ct.timestamp()
+                #print("timestamp:", ts)
+
                 agent["pending_event"] = pending
             return
 
@@ -1930,9 +1996,21 @@ async def process_agent(
                     maxr,
                     next_retry,
                 )
+                # Receiving the attestation outcome
+                start_t = datetime.datetime.now()
+                print("\nStart current time:", start_t)
+                #ts = ct.timestamp()
+                #print("Start timestamp:", ts)
+
                 tornado.ioloop.IOLoop.current().call_later(
-                    next_retry, invoke_get_quote, agent, mb_policy, runtime_policy, True, timeout=timeout  # type: ignore  # due to python <3.9
+                    next_retry, invoke_get_quote, agent, mb_policy, runtime_policy, True, timeout=timeout, ct=start_t  # type: ignore  # due to python <3.9
                 )
+                # Receiving the attestation outcome
+                ct = datetime.datetime.now()
+                #print("current time:", ct)
+                ts = ct.timestamp()
+                #print("timestamp:", ts)
+
             return
 
         if main_agent_operational_state == states.PROVIDE_V and new_operational_state == states.PROVIDE_V_RETRY:
@@ -2064,6 +2142,7 @@ def main() -> None:
 
     def server_process(task_id: int, agents: List[VerfierMain]) -> None:
         logger.info("Starting server of process %s", task_id)
+        
         assert isinstance(engine, Engine)
         engine.dispose()
         server = tornado.httpserver.HTTPServer(app, ssl_options=ssl_ctx, max_buffer_size=max_upload_size)
@@ -2110,7 +2189,7 @@ def main() -> None:
     if run_revocation_notifier:
         logger.info(
             "Starting service for revocation notifications on port %s",
-            config.getint("verifier", "zmq_port", section="revocations"),
+            config.getint("verifier", "zmq_port", section="revocations"),   
         )
         revocation_notifier.start_broker()
 
