@@ -34,6 +34,8 @@ def _check_devid_requirements() -> None:
 def main() -> None:
     logger.info("Starting Keylime registrar...")
 
+    print("Hello. This is the Keylime Registrar for QUBIP\n\n")
+
     # Log supported API versions
     api_version.log_api_versions(logger)
 

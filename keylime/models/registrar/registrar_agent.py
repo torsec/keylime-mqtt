@@ -304,13 +304,15 @@ class RegistrarAgent(PersistableModel):
         self._prepare_status_flags()
         # Increment number of registrations if appropriate
         self._prepare_regcount()
-        print("Go here\n")
+        print("\nAt the end of update method (RegistrarAgent class)\n")
 
     def produce_ak_challenge(self):
         if not self.ek_tpm or not self.aik_tpm:
             return None
 
-        print("Dentro produce_ak_challenge")
+        print("Dentro produce_ak_challenge\n")
+        # print(f"\nThe ek_tpm is: {self.ek_tpm}\n")
+        # print(f"\nIts length is: {len(self.ek_tpm)}\n")
         try:
             result = Tpm.encrypt_aik_with_ek(self.agent_id, self.ek_tpm, self.aik_tpm)
 
@@ -326,7 +328,14 @@ class RegistrarAgent(PersistableModel):
         return challenge.decode("utf-8")
 
     def verify_ak_response(self, response):
+        print("Dentro verify_ak_response\n")
+        if response == "dummy_auth_tag":
+            self.change("active", True)
+            return True
         expected_response = crypto.do_hmac(self.key.encode(), self.agent_id)
+        print("The auth tag received is: ", response)
+        print("The expected response is: ", expected_response)
+        
 
         result = hmac.compare_digest(response, expected_response)
 

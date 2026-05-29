@@ -19,6 +19,7 @@ class RequestsClient:
         # Remove eventual "http?://" from the base url
         if base_url.startswith("http"):
             base_url = re.sub(r"https?://", "", base_url)
+            print("Il nuovo base url e': ", base_url, "\n")
 
         if tls_enabled:
             self.base_url = f"https://{base_url}"
@@ -49,7 +50,7 @@ class RequestsClient:
         return self.session.head(self.base_url + url, **kwargs)
 
     def get(self, url: str, **kwargs: Any) -> requests.Response:
-        print("L'URL del get e': ", self.base_url)
+        print(f"L'URL del get e': {self.base_url}{url}")
         return self.session.get(self.base_url + url, **kwargs)
 
     def post(self, url: str, **kwargs: Any) -> requests.Response:

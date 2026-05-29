@@ -15,9 +15,9 @@ class RegistrarServer(Server):
     @Server.version_scope(2)
     def _v2_routes(self):
         # Routes used by the tenant to manage registered agents
-        self._get("/agents", AgentsController, "index")
-        self._get("/agents/:agent_id", AgentsController, "show")
-        self._delete("/agents/:agent_id", AgentsController, "delete")
+        self._get("/agents", AgentsController, "index", allow_insecure=True)
+        self._get("/agents/:agent_id", AgentsController, "show", allow_insecure=True)
+        self._delete("/agents/:agent_id", AgentsController, "delete", allow_insecure=True)
 
         # Routes used by agents to register (which happens over HTTP without TLS)
         self._post("/agents", AgentsController, "create", allow_insecure=True)

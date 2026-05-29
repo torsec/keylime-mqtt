@@ -283,9 +283,10 @@ def makecredential(ek_tpm: bytes, challenge: bytes, aik_name: bytes) -> bytes:
     challenge: random 'password'
     aik_name: name of the object (AIK)
     """
-    #print("Arrived at makecredential\n\n")
-    #print("\nThe ek_tpm is try:\n")
-    #print(ek_tpm)
+    print("Arrived at makecredential\n")
+    # print("The ek_tpm is try:\n")
+    # print(ek_tpm)
+    
     #print("\nThe challenge is:\n")
     #print(challenge)
     #print("\nThe aik_name is:\n")
@@ -295,7 +296,7 @@ def makecredential(ek_tpm: bytes, challenge: bytes, aik_name: bytes) -> bytes:
     #print("\nA pubkey_parms_from_tpm2b_public passo ek_tpm e devo ritornare la public_key e l'hash_alg\n")
     public_key, hash_alg = tpm2_objects.pubkey_parms_from_tpm2b_public(ek_tpm)
 
-    #print("\nI am in makecredential public_key is: ", public_key, " and hash_alg is: ", hash_alg, "\n");
+    print("\nI am in makecredential public_key is: ", public_key, " and hash_alg is: ", hash_alg, "\n");
     hashfunc = tpm2_objects.HASH_FUNCS.get(hash_alg)
     if not hashfunc:
         raise ValueError(f"Unsupported hash with id {hash_alg:#x} in signature blob")

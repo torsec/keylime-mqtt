@@ -60,9 +60,15 @@ def getData(
 
     response = None
     try:
-        client = RequestsClient(f"{bracketize_ipv6(registrar_ip)}:{registrar_port}", True, tls_context=tls_context)
+        client = RequestsClient(f"{bracketize_ipv6(registrar_ip)}:{registrar_port}", False, tls_context=tls_context)
+        print(f"The client is: {client}")
+        print(f"The link is: /v{API_VERSION}/agents/{agent_id}\n")
+        
+        
         response = client.get(f"/v{API_VERSION}/agents/{agent_id}")
         response_body = response.json()
+        
+        print("\nMica arriva qui? ", response_body, "\n")
 
         if response.status_code == 404:
             logger.critical(
@@ -122,7 +128,7 @@ def doRegistrarDelete(
     :returns: The request response body
     """
 
-    client = RequestsClient(f"{bracketize_ipv6(registrar_ip)}:{registrar_port}", True, tls_context=tls_context)
+    client = RequestsClient(f"{bracketize_ipv6(registrar_ip)}:{registrar_port}", False, tls_context=tls_context)
     response = client.delete(f"/v{API_VERSION}/agents/{agent_id}")
     response_body: Dict[str, Any] = response.json()
 
@@ -145,7 +151,7 @@ def doRegistrarList(
 
     :returns: The request response body
     """
-    client = RequestsClient(f"{bracketize_ipv6(registrar_ip)}:{registrar_port}", True, tls_context=tls_context)
+    client = RequestsClient(f"{bracketize_ipv6(registrar_ip)}:{registrar_port}", False, tls_context=tls_context)
     response = client.get(f"/v{API_VERSION}/agents/")
     response_body: Dict[str, Any] = response.json()
 

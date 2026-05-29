@@ -69,6 +69,7 @@ def load_imports(skip_custom_policies: Optional[bool] = False) -> None:
         imports: List[Any] = []
         if not skip_custom_policies:
             # import custom policies
+            print("Loading custom policies ...\n\n")
             imports = config.getlist("verifier", "measured_boot_imports")
         # these are the defaults
         imports.append("keylime.mba.elchecking.elchecker")

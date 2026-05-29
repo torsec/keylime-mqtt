@@ -282,9 +282,11 @@ def pubkey_parms_from_tpm2b_public(
 ) -> Tuple[pubkey_type, int]:
 
     #print('The very first public material is:\n\n' + str(public) + '\n\nAnd its length is: ' + str(len(str(public))))
-    #print(len(public))
+    # print(f"\nThe length now is: {len(public)}")
     (public, rest) = _extract_tpm2b(public)
-    #print('The public is:\n\n' + str(public) + '\n\nThe rest is:' + str(rest))
+    # print('\nThe public is:\n\n' + str(public) + '\n\nThe rest is:' + str(rest))
+    # print(f"\nThe length now is: {len(public)}")
+    
     if len(rest) != 0:
         raise ValueError("More in tpm2b_public than tpmt_public")
     # Extract type, nameAlg, and [objectAttributes] (we don't care about the
@@ -294,14 +296,15 @@ def pubkey_parms_from_tpm2b_public(
     
     # alg_type --> 2 byte. name_alg --> 2 byte.
 
-    #print('The algorithm for public/private key is: ' + str(alg_type) + '\nThe hashing algorithm is: ' +  str(name_alg) + '\n')
+    # print('The algorithm for public/private key is: ' + str(alg_type) + '\nThe hashing algorithm is: ' +  str(name_alg) + '\n')
     # Ignore the authPolicy
     (_, sym_parms) = _extract_tpm2b(public[8:])
-    #print('The sym parms are:\n\n' + str(sym_parms) + '\n\nAnd its length is: ')
-    #print(len(sym_parms))
+    # print('The sym parms are:\n\n' + str(sym_parms) + '\n\nAnd its length is: ')
+    # print(len(sym_parms))
     # Ignore the non-asym-alg parameters
     (sym_alg,) = struct.unpack(">H", sym_parms[0:2])
     (scheme_alg,) = struct.unpack(">H", sym_parms[2:4])
+    # print("The symmetric algorithm is: " + str(sym_alg) + '\nThe scheme algorithm is: ' + str(scheme_alg) + '\n')
     # Ignore the sym_mode and keybits (4 bytes), possibly symmetric (2) and sign
     #  scheme (2)
     to_skip = 4  # sym_mode, keybits
@@ -309,12 +312,12 @@ def pubkey_parms_from_tpm2b_public(
         to_skip = to_skip + 2
     if scheme_alg != TPM2_ALG_NULL:
         to_skip = to_skip + 2
-    #print('The to_skip variable is: ' + str(to_skip) + '\n\n')
+    # print('The to_skip variable is: ' + str(to_skip) + '\n\n')
     asym_parms = sym_parms[to_skip:]
 
-    #print('Asym parms: ' + str(asym_parms) + '\nAnd its lenght is: ')
-    #print(len(asym_parms))
-    #print('\nsym_alg: ' + str(sym_alg) + '\nBits of the Asymmetric Algorithm: ' + str(scheme_alg) + '\n')
+    # print('Asym parms: ' + str(asym_parms) + '\nAnd its lenght is: ')
+    # print(len(asym_parms))
+    # print('\nsym_alg: ' + str(sym_alg) + '\nBits of the Asymmetric Algorithm: ' + str(scheme_alg) + '\n')
 
     # Handle fields
     if alg_type == TPM_ALG_RSA:
@@ -350,8 +353,10 @@ def pubkey_parms_from_tpm2b_public(
         ecc_numbers = EllipticCurvePublicNumbers(bx, by, curve)
         return ecc_numbers.public_key(backend=default_backend()), name_alg
 
-    if alg_type == TPM_ALG_MLDSA:
+    if alg_type == TPM_ALG_MLDSA:       # Bisognerebbe creare un MldsaPublicNumbers.
         print('MLDSA  case\n')
+        
+        
         return public, name_alg
 
     raise ValueError(f"Invalid tpm2b_public type: {alg_type}")

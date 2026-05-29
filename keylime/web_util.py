@@ -72,6 +72,8 @@ def init_tls_dir(component: str, logger: Optional[Logger] = None) -> str:
 
         tls_dir = os.path.abspath(os.path.join(config.WORK_DIR, generatedir))
         ca_path = os.path.join(tls_dir, "cacert.crt")
+        
+        print("HELLOOO\n")
 
         ca_util.read_password(None)
 
@@ -233,6 +235,8 @@ def get_tls_options(
     peer certificate should be verified
     """
 
+    print("I am in get_tls_options, the component is: ", component)
+    
     tls_dir = get_tls_dir(component)
 
     if is_client:

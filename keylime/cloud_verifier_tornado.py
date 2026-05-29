@@ -517,6 +517,7 @@ class AgentsHandler(BaseHandler):
 
             if agent_id is not None:
                 content_length = len(self.request.body)
+                print(f"The content length is: {content_length}\n")
                 if content_length == 0:
                     web_util.echo_json_response(self, 400, "Expected non zero content length")
                     logger.warning("POST returning 400 response. Expected non zero content length.")
@@ -781,6 +782,10 @@ class AgentsHandler(BaseHandler):
 
                     if agent_data["ssl_context"] is None:
                         logger.warning("Connecting to agent without mTLS: %s", agent_id)
+                        
+                    print("\nPrima di process_agent. The agent data is: \n\n")
+                    print(agent_data)
+                    
 
                     asyncio.ensure_future(process_agent(agent_data, states.GET_QUOTE))
                     web_util.echo_json_response(self, 200, "Success")
@@ -1116,6 +1121,7 @@ class VerifyIdentityHandler(BaseHandler):
 
         This is useful for 3rd party tools and integrations to independently verify the state of an agent.
         """
+        print("\nAll'interno del metodo GET di VerifyIdentityHandler\n")
         session = get_session()
 
         # validate the parameters of our request
@@ -1490,11 +1496,14 @@ async def update_agent_api_version(agent: Dict[str, Any], timeout: float = 60.0)
 
 
 async def invoke_get_quote(
-    agent: Dict[str, Any], mb_policy: Optional[str], runtime_policy: str, need_pubkey: bool, timeout: float = 60.0, ct = None
+    agent: Dict[str, Any], mb_policy: Optional[str], runtime_policy: str, need_pubkey: bool, timeout: float = 60.0, ct: Optional[datetime.datetime] = datetime.datetime(1970,1,1)
 ) -> None:
     failure = Failure(Component.INTERNAL, ["verifier"])
 
+    # print("Before preparing get quote\n")
     params = cloud_verifier_common.prepare_get_quote(agent)
+    # print("After preparing get quote\n")
+    # print("The params for get quote are: ", params, "\n")
 
     partial_req = "1"
     if need_pubkey:
@@ -1505,6 +1514,7 @@ async def invoke_get_quote(
     if agent["ssl_context"]:
         kwargs["context"] = agent["ssl_context"]
 
+    # Questa chiamata fa la richiesta all'agent della Quote. Tramite l'URL 
     res = tornado_requests.request(
         "GET",
         f"http://{agent['ip']}:{agent['port']}/v{agent['supported_version']}/quotes/integrity"
@@ -1514,6 +1524,9 @@ async def invoke_get_quote(
         timeout=timeout,
     )
     response = await res
+    
+    # print("Received response from agent for get quote request")
+    # print("The response status code is: ", response.status_code, "\n")
 
     if response.status_code != 200:
         # this is a connection error, retry get quote
@@ -1567,6 +1580,8 @@ async def invoke_get_quote(
 
             if rmc:
                 rmc.record_create(agent, json_response, mb_policy, runtime_policy)
+                
+            # print("Ricevuta la Quote con response 200, ora si processa la Quote\n")
 
             failure = cloud_verifier_common.process_quote_response(
                 agent,
@@ -1577,10 +1592,11 @@ async def invoke_get_quote(
             )
             # Receiving the attestation outcome
             end_t = datetime.datetime.now()
-            print("Correct end current time:", end_t)
+            print("VALID Quote end current time:", end_t)
             #ts = ct.timestamp()
             #print("Correct end timestamp:", ts)
-            print("The time passed for the VALID Quote is: ", end_t - ct, "\n")
+            if ct is not None:
+                print("The time passed for the VALID Quote is: ", end_t - ct, "\n")
 
             if not failure:
                 mqtt_payload = {
@@ -1599,10 +1615,11 @@ async def invoke_get_quote(
                 asyncio.ensure_future(process_agent(agent, states.INVALID_QUOTE, failure))
                 # Receiving the attestation outcome
                 end_inv_t = datetime.datetime.now()
-                print("Invalid Quote current time:", end_inv_t)
+                print("INVALID Quote end current time:", end_inv_t)
                 #ts = ct.timestamp()
                 #print("Invalid Quote end timestamp:", ts)
-                print("The time passed for the NOT VALID Quote is: ", end_inv_t - ct, "\n")
+                if ct is not None:
+                    print("The time passed for the NOT VALID Quote is: ", end_inv_t - ct, "\n")
    
             
             try:
@@ -1800,6 +1817,8 @@ async def process_agent(
             logger.error("SQLAlchemy Error for agent ID %s: %s", agent["agent_id"], e)
 
         # if the stored agent could not be recovered from the database, stop polling
+        # print("\n\nLo stored agent e': ", stored_agent)
+        # print("\n")
         if not stored_agent:
             logger.warning("Unable to retrieve agent %s from database. Stopping polling", agent["agent_id"])
             if agent["pending_event"] is not None:
@@ -1807,6 +1826,7 @@ async def process_agent(
             return
 
         # if the user did terminated this agent
+        # Fare check in modo che se termino Agent printo questo oppure no
         if stored_agent.operational_state == states.TERMINATED:  # pyright: ignore
             logger.warning("Agent %s terminated by user.", agent["agent_id"])
             if agent["pending_event"] is not None:
@@ -1815,6 +1835,7 @@ async def process_agent(
             return
 
         # if the user tells us to stop polling because the tenant quote check failed
+        # Se la Check_Quote fallisce
         if stored_agent.operational_state == states.TENANT_FAILED:  # pyright: ignore
             logger.warning("Agent %s has failed tenant quote. Stopping polling", agent["agent_id"])
             if agent["pending_event"] is not None:
@@ -1823,6 +1844,7 @@ async def process_agent(
 
         # Get request timeout from configuration file
         timeout = config.getfloat("verifier", "request_timeout", fallback=60.0)
+        # print("\nIl timeout configurato è: ", timeout, "\n")
 
         # If failed during processing, log regardless and drop it on the floor
         # The administration application (tenant) can GET the status and act accordingly (delete/retry/etc).
@@ -1851,6 +1873,7 @@ async def process_agent(
                     session.commit()
 
         # propagate all state, but remove none DB keys first (using exclude_db)
+        # print("\nDeleting none DB ... keys\n")
         try:
             agent_db = dict(agent)
             for key in exclude_db:
@@ -1861,11 +1884,14 @@ async def process_agent(
             session.commit()
         except SQLAlchemyError as e:
             logger.error("SQLAlchemy Error for agent ID %s: %s", agent["agent_id"], e)
+        # print("... Delete none DB keys done\n")
 
         # Load agent's IMA policy
+        # print("\nLoading IMA policy from cache\n")
         runtime_policy = verifier_read_policy_from_cache(stored_agent)
 
         # Get agent's measured boot policy
+        # print("\nGetting agent's measured boot policy\n")
         mb_policy = None
         if stored_agent.mb_policy is not None:
             mb_policy = stored_agent.mb_policy.mb_policy
@@ -1874,12 +1900,13 @@ async def process_agent(
         # or just add it again to the event loop
         if new_operational_state in [states.FAILED, states.INVALID_QUOTE]:
             if not failure.recoverable or failure.highest_severity == MAX_SEVERITY_LABEL:
+                # QUA mi blocco
                 logger.warning("Agent %s failed, stopping polling", agent["agent_id"])
                 return
 
             # Receiving the attestation outcome
             start_t = datetime.datetime.now()
-            print("\nStart current time:", start_t)
+            print("\nStart current time caso 1:", start_t)
             #ts = ct.timestamp()
             #print("Start timestamp:", ts)
 
@@ -1894,13 +1921,14 @@ async def process_agent(
             return
 
         # if new, get a quote
+        # Alla prima partenza dovremmo passare qui per una Nuova Quote.
         if main_agent_operational_state == states.START and new_operational_state == states.GET_QUOTE:
             agent["num_retries"] = 0
             agent["operational_state"] = states.GET_QUOTE
             
             # Starting attestation request
             start_t = datetime.datetime.now()
-            print("\nStart current time:", start_t)
+            print("\nStart current time caso 2:", start_t)
             #ts = ct.timestamp()
             #print("Start timestamp:", ts)
 
@@ -1934,7 +1962,7 @@ async def process_agent(
             if interval == 0:
                 # Receiving the attestation outcome
                 start_t = datetime.datetime.now()
-                print("\nStart current time:", start_t)
+                print("\nStart current time caso 3:", start_t)
                 #ts = ct.timestamp()
                 #print("Start timestamp:", ts)
 
@@ -1951,7 +1979,7 @@ async def process_agent(
                 )
                 # Receiving the attestation outcome
                 start_t = datetime.datetime.now()
-                print("\nStart current time:", start_t)
+                print("\nStart current time caso 4:", start_t)
                 #ts = ct.timestamp()
                 #print("Start timestamp:", ts)
 
@@ -1998,10 +2026,12 @@ async def process_agent(
                 )
                 # Receiving the attestation outcome
                 start_t = datetime.datetime.now()
-                print("\nStart current time:", start_t)
+                print("\nStart current time caso 5:", start_t)
                 #ts = ct.timestamp()
                 #print("Start timestamp:", ts)
 
+
+                # Chiamata con delay per retry get quote. Fornita (opzionalmente) tramite algoritmo di "exponential backoff" configurabile
                 tornado.ioloop.IOLoop.current().call_later(
                     next_retry, invoke_get_quote, agent, mb_policy, runtime_policy, True, timeout=timeout, ct=start_t  # type: ignore  # due to python <3.9
                 )
@@ -2050,6 +2080,8 @@ async def process_agent(
 
 
 async def activate_agents(agents: List[VerfierMain], verifier_ip: str, verifier_port: int) -> None:
+    #print("Beginning of actiavation of agents...")
+    #print("Agents to activate: ", agents)
     aas = get_AgentAttestStates()
     for agent in agents:
         agent.verifier_ip = verifier_ip  # pyright: ignore
@@ -2088,6 +2120,8 @@ def get_agents_by_verifier_id(verifier_id: str) -> List[VerfierMain]:
 def main() -> None:
     """Main method of the Cloud Verifier Server.  This method is encapsulated in a function for packaging to allow it to be
     called as a function by an external program."""
+    
+    print("Starting Cloud Verifier (tornado) server...")
 
     config.check_version("verifier", logger=logger)
 
@@ -2126,6 +2160,8 @@ def main() -> None:
 
     # Get the server TLS context
     ssl_ctx = web_util.init_mtls("verifier", logger=logger)
+    
+    print("\n")
 
     app = tornado.web.Application(
         [
@@ -2196,6 +2232,8 @@ def main() -> None:
     num_workers = config.getint("verifier", "num_workers")
     if num_workers <= 0:
         num_workers = tornado.process.cpu_count()
+        
+    print("Verifier id: %s" % verifier_id)
 
     agents = get_agents_by_verifier_id(verifier_id)
     for task_id in range(0, num_workers):

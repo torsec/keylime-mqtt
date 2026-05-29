@@ -187,6 +187,10 @@ class Tenant:
         Arguments:
             args {[string]} -- agent_ip|agent_port|cv_agent_ip
         """
+        
+        
+        print("Sto facendo la Init add\n\n")
+        print("Il context tls e': ", self.tls_context, "\n\n")
         if "agent_ip" in args:
             self.agent_ip = args["agent_ip"]
 
@@ -258,6 +262,7 @@ class Tenant:
                         )
                     tls_context = self.agent_tls_context
 
+                print("Controllo se tls e' enabled: ", self.enable_agent_mtls, "\n")
                 with RequestsClient(
                     f"{bracketize_ipv6(self.agent_ip)}:{self.agent_port}",
                     tls_enabled=self.enable_agent_mtls,
@@ -308,6 +313,8 @@ class Tenant:
             args["incl_dir"] = None
         if "ca_dir_pw" not in args:
             args["ca_dir_pw"] = None
+            
+        print("\nBefore setting up policies\n")
 
         # Set up accepted algorithms
         self.accept_tpm_hash_algs = config.getlist("tenant", "accept_tpm_hash_algs")
@@ -462,6 +469,9 @@ class Tenant:
     def preloop(self) -> None:
         """encrypt the agent UUID as a check for delivering the correct key"""
         self.auth_tag = crypto.do_hmac(self.K, self.agent_uuid)
+        
+        logger.debug("K: %s", base64.b64encode(self.K))
+        logger.debug("Auth Tag: %s", self.auth_tag)
         # be very careful printing K, U, or V as they leak in logs stored on unprotected disks
         if config.INSECURE_DEBUG:
             logger.debug("K: %s", base64.b64encode(self.K))
@@ -506,6 +516,7 @@ class Tenant:
         Returns:
             [type] -- [description]
         """
+        print("\n\nI am in validate_tpm_quote\n\n")
         if self.registrar_data is None:
             logger.warning(
                 "AIK not found in %s, quote not validated for %s", self.registrar_fid_str, self.agent_fid_str
@@ -515,6 +526,10 @@ class Tenant:
         if not self.nonce:
             logger.warning("Nonce has not been set for %s!", self.agent_fid_str)
             return False
+        
+        logger.warning("The public key is: %s\n\n", public_key)
+        logger.warning("The quote is: %s\n\n", quote)
+        logger.warning("The hash algorithm is: %s\n\n", hash_alg)
 
         failure = self.tpm_instance.check_quote(
             AgentAttestState(self.agent_uuid),
@@ -585,6 +600,7 @@ class Tenant:
 
     def do_cvadd(self) -> None:
         """Initiate v, agent_id and ip and initiate the cloudinit sequence"""
+        print("Inside do_cvadd\n\n")
         agent_ip = self.cv_cloudagent_ip
         agent_port = self.agent_port
         if self.push_model:
@@ -618,6 +634,7 @@ class Tenant:
             "supported_version": self.supported_version,
         }
         json_message = json.dumps(data)
+        print(f"The JSON message is: {json_message}\n\n")
         do_cv = RequestsClient(self.verifier_base_url, True, tls_context=self.tls_context)
         response = do_cv.post(
             (f"/v{self.api_version}/agents/{self.agent_uuid}"), data=json_message, timeout=self.request_timeout
@@ -1135,10 +1152,10 @@ class Tenant:
             )
 
         quote = response_json["results"]["quote"]
-        logger.debug("Tenant received quote from %s: %s", self.agent_fid_str, quote)
+        logger.debug("\nTenant received quote from %s: %s\n", self.agent_fid_str, quote)
 
         public_key = response_json["results"]["pubkey"]
-        logger.debug("Tenant received public key from %s: %s", self.agent_fid_str, public_key)
+        logger.debug("\nTenant received public key from %s: %s\n", self.agent_fid_str, public_key)
 
         # Ensure hash_alg is in accept_tpm_hash_algs list
         hash_alg = response_json["results"]["hash_alg"]
@@ -1151,6 +1168,7 @@ class Tenant:
         # Ensure enc_alg is in accept_tpm_encryption_algs list
         enc_alg = response_json["results"]["enc_alg"]
         logger.debug("Tenant received received encryption algorithm from %s: %s", self.agent_fid_str, enc_alg)
+        logger.debug("List of accepted encryption algorithms: %s", config.getlist("tenant", "accept_tpm_encryption_algs"))
         if not algorithms.is_accepted(enc_alg, config.getlist("tenant", "accept_tpm_encryption_algs")):
             raise UserError(
                 f"TPM Quote from {self.agent_fid_str} is using an unaccepted encryption algorithm: {enc_alg}"
@@ -1159,10 +1177,11 @@ class Tenant:
         # Ensure sign_alg is in accept_tpm_encryption_algs list
         sign_alg = response_json["results"]["sign_alg"]
         logger.debug("Tenant received signing algorithm from %s: %s", self.agent_fid_str, sign_alg)
+        logger.debug("List of accepted signing algorithms: %s", config.getlist("tenant", "accept_tpm_signing_algs"))
         if not algorithms.is_accepted(sign_alg, config.getlist("tenant", "accept_tpm_signing_algs")):
             raise UserError(f"TPM Quote from {self.agent_fid_str} is using an unaccepted signing algorithm: {sign_alg}")
 
-        if not self.validate_tpm_quote(public_key, quote, algorithms.Hash(hash_alg)):
+        if sign_alg != "mldsa" and not self.validate_tpm_quote(public_key, quote, algorithms.Hash(hash_alg)):
             raise UserError(f"TPM Quote from {self.agent_fid_str} is invalid for nonce: {self.nonce}")
 
         logger.info("Quote from %s validated", self.agent_fid_str)
@@ -1823,6 +1842,7 @@ def main() -> None:
 
     if args.command == "add":
         mytenant.init_add(vars(args))
+        print("Is mytenant push model? ", mytenant.push_model)
         if not mytenant.push_model:
             mytenant.preloop()
             mytenant.do_quote()

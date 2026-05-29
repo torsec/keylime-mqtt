@@ -6,6 +6,9 @@ logger = keylime_logging.init_logging("verifier")
 
 
 def main() -> None:
+
+    print("Hello. This is the Keylime Verifier for QUBIP\n\n")
+
     # if we are configured to auto-migrate the DB, check if there are any migrations to perform
     if config.has_option("verifier", "auto_migrate_db") and config.getboolean("verifier", "auto_migrate_db"):
         apply("cloud_verifier")

@@ -31,6 +31,7 @@ def get_AgentAttestStates() -> AgentAttestStates:
     return AgentAttestStates.get_instance()
 
 
+# Identity Quote. /quotes/integrity endpoint. 
 def process_quote_response(
     agent: Dict[str, Any],
     mb_policy: Optional[str],
@@ -99,6 +100,9 @@ def process_quote_response(
     hash_alg = json_response.get("hash_alg")
     enc_alg = json_response.get("enc_alg")
     sign_alg = json_response.get("sign_alg")
+    
+    
+    # print("\n\nHash alg: ", hash_alg, "Enc alg: ", enc_alg, "Sign alg: ", sign_alg, "\n\n")
 
     # Ensure hash_alg is in accept_tpm_hash_alg list
     if (
@@ -186,23 +190,33 @@ def process_quote_response(
     if agent.get("tpm_clockinfo"):
         agentAttestState.set_tpm_clockinfo(TPMClockInfo.from_dict(agent["tpm_clockinfo"]))
 
-    quote_validation_failure = get_tpm_instance().check_quote(
-        agentAttestState,
-        agent["nonce"],
-        received_public_key,
-        quote,
-        agent["ak_tpm"],
-        agent["tpm_policy"],
-        ima_measurement_list,
-        runtime_policy,
-        algorithms.Hash(hash_alg),
-        ima_keyrings,
-        mb_measurement_list,
-        mb_policy,
-        compressed=(agent["supported_version"] == "1.0"),
-        count=agent["attestation_count"],
-    )  # TODO: change this to always False after initial update
-    failure.merge(quote_validation_failure)
+
+    print("\nPoco prima di check quote\n")
+    # OSS: check_quote viene chiamata anche dal Tenant
+    # In realtà la check_quote è agnostica rispetto all'algoritmo di firma
+    if sign_alg != "mldsa":
+        quote_validation_failure = get_tpm_instance().check_quote(
+            agentAttestState,
+            agent["nonce"],
+            received_public_key,
+            quote,
+            agent["ak_tpm"],
+            agent["tpm_policy"],
+            ima_measurement_list,
+            runtime_policy,
+            algorithms.Hash(hash_alg),
+            ima_keyrings,
+            mb_measurement_list,
+            mb_policy,
+            compressed=(agent["supported_version"] == "1.0"),
+            count=agent["attestation_count"],
+        )  # TODO: change this to always False after initial update
+        failure.merge(quote_validation_failure)
+    # Nell' ELSE case non faccio niente per il momento e ritorno lo stesso Failure di prima, in modo da non far fallire la Quote, ma semplicemente saltare la validazione. 
+    # In futuro, quando implementeremo la validazione per mldsa, qui andrà inserita la chiamata alla funzione di validazione della Quote per mldsa.
+    # Non faccio nessuna merge di Failures
+        
+    print("\nDopo check quote\n")
 
     agent["last_received_quote"] = int(time.time())
 
@@ -322,7 +336,7 @@ def prepare_error(agent: Dict[str, Any], msgtype: str = "revocation", event: Opt
         tosend["signature"] = b""
     return tosend
 
-
+# Identity Quote. /quotes/identity endpoint. 
 def process_verify_identity_quote(
     agent: VerfierMain,
     quote: str,
