@@ -226,6 +226,7 @@ def checkquote(
     exp_hash_alg: The hash that was expected to have been used for quoting
     """
     sig_alg, hash_alg = struct.unpack_from(">HH", sigblob, 0)
+    print("\nThe value of the sig_alg is: %s\n" % sig_alg)
 
     pubkey = serialization.load_pem_public_key(aikblob, backend=backends.default_backend())
     if not isinstance(pubkey, (RSAPublicKey, EllipticCurvePublicKey)):

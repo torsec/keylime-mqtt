@@ -45,6 +45,20 @@ from keylime.mba import mba
 
 import datetime
 
+# Test file creation
+output_file = open("tempi.txt", "a", encoding="utf-8")
+# counter for the number of tests
+cnt = 0
+n_test = 100
+def increment():
+    global cnt
+    cnt += 1
+    print(cnt)
+    if(cnt > n_test):
+        output_file.close()
+        exit()
+        #IOLoop.current().stop()
+
 logger = keylime_logging.init_logging("verifier")
 
 GLOBAL_POLICY_CACHE: Dict[str, Dict[str, str]] = {}
@@ -1528,6 +1542,7 @@ async def invoke_get_quote(
     # print("Received response from agent for get quote request")
     # print("The response status code is: ", response.status_code, "\n")
 
+    print("The response status code is: ", response.status_code, "\n")
     if response.status_code != 200:
         # this is a connection error, retry get quote
         if response.status_code in [408, 500, 599]:
@@ -1590,19 +1605,35 @@ async def invoke_get_quote(
                 json_response["results"],
                 agentAttestState,
             )
-            # Receiving the attestation outcome
-            end_t = datetime.datetime.now()
-            print("VALID Quote end current time:", end_t)
-            #ts = ct.timestamp()
-            #print("Correct end timestamp:", ts)
-            if ct is not None:
-                print("The time passed for the VALID Quote is: ", end_t - ct, "\n")
-
+            print("The failure.recoverable variable is: ", failure.recoverable, "\n")
+            
             if not failure:
                 mqtt_payload = {
                     "uuid": agent["agent_id"],
                     "status": "OK"
                 }
+                # Receiving the attestation outcome
+                end_t = datetime.datetime.now()
+                print("Correct end current time:", end_t)
+                #ts = ct.timestamp()
+                #print("Correct end timestamp:", ts)
+                
+                #print("The time passed for the VALID Quote is: ", end_t - ct, "\n")
+                if ct is not None:
+                    print("The time passed for the VALID Quote is: ", end_t - ct, "\n")
+                    
+                    time = end_t - ct
+                    if cnt >=1:
+                        print("The count is now: ", cnt)
+                        output_file.write(f"{time}\n")
+                        
+                    increment()
+                    
+                    if (cnt >= n_test):
+                        exit
+                    
+                
+                
                 if agent["provide_V"]:
                     asyncio.ensure_future(process_agent(agent, states.PROVIDE_V))
                 else:
@@ -1612,6 +1643,7 @@ async def invoke_get_quote(
                     "uuid": agent["agent_id"],
                     "status": "NOK"
                 }
+                print("\nProcess_agent with INVALID_QUOTE\n")
                 asyncio.ensure_future(process_agent(agent, states.INVALID_QUOTE, failure))
                 # Receiving the attestation outcome
                 end_inv_t = datetime.datetime.now()

@@ -194,6 +194,7 @@ class Tenant:
         if "agent_ip" in args:
             self.agent_ip = args["agent_ip"]
 
+        print("The Agent IP is: ", self.agent_ip, "\n\n")
         if "agent_port" in args and args["agent_port"] is not None:
             self.agent_port = args["agent_port"]
 
@@ -205,6 +206,8 @@ class Tenant:
 
         if self.registrar_data is None:
             raise UserError(f"Agent ${self.agent_uuid} data not found in the Registrar.")
+        
+        print("The self.registrar_data is: ", self.registrar_data, "\n\n")
 
         if not self.push_model:
             # try to get the port or ip from the registrar if it is missing
@@ -466,6 +469,8 @@ class Tenant:
             if len(self.payload) > max_payload_size:
                 raise UserError(f"Payload size {len(self.payload)} exceeds max size {max_payload_size}")
 
+        print("\n\nCheck again the self.registrar_data: ", self.registrar_data, "\n\n")
+
     def preloop(self) -> None:
         """encrypt the agent UUID as a check for delivering the correct key"""
         self.auth_tag = crypto.do_hmac(self.K, self.agent_uuid)
@@ -527,7 +532,7 @@ class Tenant:
             logger.warning("Nonce has not been set for %s!", self.agent_fid_str)
             return False
         
-        logger.warning("The public key is: %s\n\n", public_key)
+        logger.warning("The public key is:\n%s\n\n", public_key)
         logger.warning("The quote is: %s\n\n", quote)
         logger.warning("The hash algorithm is: %s\n\n", hash_alg)
 
@@ -634,7 +639,7 @@ class Tenant:
             "supported_version": self.supported_version,
         }
         json_message = json.dumps(data)
-        print(f"The JSON message is: {json_message}\n\n")
+        # print(f"The JSON message is: {json_message}\n\n")
         do_cv = RequestsClient(self.verifier_base_url, True, tls_context=self.tls_context)
         response = do_cv.post(
             (f"/v{self.api_version}/agents/{self.agent_uuid}"), data=json_message, timeout=self.request_timeout
@@ -1106,6 +1111,7 @@ class Tenant:
             try:
                 params = f"/v{self.supported_version}/quotes/identity?nonce=%s" % (self.nonce)
                 cloudagent_base_url = f"{bracketize_ipv6(self.agent_ip)}:{self.agent_port}"
+                print("I am in do_quote, the params are: ", params, " and the cloudagent_base_url is: ", cloudagent_base_url, "\n\n")
 
                 if self.enable_agent_mtls and self.registrar_data and self.registrar_data["mtls_cert"]:
                     with RequestsClient(
@@ -1117,6 +1123,9 @@ class Tenant:
                 else:
                     logger.warning("Connecting to %s without using mTLS!", self.agent_fid_str)
                     do_quote = RequestsClient(cloudagent_base_url, tls_enabled=False)
+                    # Here there is the Request from the Tenant to the Agent of the Quote.
+                    # (Il fatto che sia una richiesta di quote dipende dal tipo di URL che è stato generato)
+                    # After the GET the control is passed to the Agent
                     response = do_quote.get(params, timeout=self.request_timeout)
 
                 response_json = Tenant._jsonify_response(response, print_response=True, raise_except=True)
@@ -1841,11 +1850,17 @@ def main() -> None:
             logger.info("Signature verification on %s was successful", key_url)
 
     if args.command == "add":
+        print("Before init_add\n\n")
         mytenant.init_add(vars(args))
+        print("Returned from init_add\n\n")
         print("Is mytenant push model? ", mytenant.push_model)
         if not mytenant.push_model:
+            print("Before preloop\n\n")
             mytenant.preloop()
+            print("Returned from preloop\n\n")
+            print("Before do_quote\n\n")
             mytenant.do_quote()
+            print("Returned from do_quote\n\n")
         mytenant.do_cvadd()
         if not mytenant.push_model and args.verify:
             mytenant.do_verify()

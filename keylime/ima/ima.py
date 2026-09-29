@@ -230,6 +230,8 @@ def _process_measurement_list(
     assert running_hash
 
     found_pcr = pcrval is None
+    
+    print("The first value is: ", found_pcr)
     errors: Dict[Type[ast.Mode], int] = {}
     pcrval_bytes = b""
     if pcrval is not None:
@@ -301,6 +303,10 @@ def _process_measurement_list(
         found_pcr = running_hash == pcrval_bytes
         pcr_match_line = 0
 
+    print("Print running_hash: ", running_hash)
+    print("Print pcrval_bytes: ", pcrval_bytes)
+    print("The found_pcr is: ", found_pcr)
+    
     for linenum, line in enumerate(lines):
         # remove only the newline character, as there can be the space
         # as the delimiter character followed by an empty field at the
@@ -326,6 +332,8 @@ def _process_measurement_list(
             if not found_pcr:
                 # End of list should equal pcr value
                 found_pcr = running_hash == pcrval_bytes
+                # print("Print running_hash: ", running_hash)
+                # print("Print pcrval_bytes: ", pcrval_bytes)
                 if found_pcr:
                     pcr_match_line = linenum + 1
                     logger.debug("Found match at linenum %s", linenum + 1)
@@ -340,6 +348,8 @@ def _process_measurement_list(
             logger.error("Line was not parsable into a valid IMA entry: %s", line)
 
     # check PCR value has been found
+    # print(f"\n\nThe pcr Value is:", pcrval)
+    
     if not found_pcr:
         logger.error("IMA measurement list does not match TPM PCR %s", pcrval)
         failure.add_event("pcr_mismatch", f"IMA measurement list does not match TPM PCR {pcrval}", True)

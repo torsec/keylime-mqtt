@@ -59,7 +59,7 @@ def process_quote_response(
         boottime = json_response.get("boottime", 0)
 
         logger.debug(
-            "received data for agent %s, quote: %s, nonce: %s, public key(b64): %s, ima_measurement_list: %s, ima_measurement_list_entry: %s, measured_boot_log: %s, boottime: %s",
+            "received data for agent %s\n\n quote: %s\n\n nonce: %s\n\n public key(b64): %s\n\n ima_measurement_list: %s, ima_measurement_list_entry: %s, measured_boot_log: %s, boottime: %s",
             agent_id,
             quote,
             agent["nonce"],
@@ -192,8 +192,9 @@ def process_quote_response(
 
 
     print("\nPoco prima di check quote\n")
-    # OSS: check_quote viene chiamata anche dal Tenant
-    # In realtà la check_quote è agnostica rispetto all'algoritmo di firma
+    print(sign_alg)
+    # OSS: check_quote is called also from the Tenant
+    # Actually the `check_quote` function is agnostic w.r.t. the sign algorithm
     if sign_alg != "mldsa":
         quote_validation_failure = get_tpm_instance().check_quote(
             agentAttestState,
@@ -210,15 +211,34 @@ def process_quote_response(
             mb_policy,
             compressed=(agent["supported_version"] == "1.0"),
             count=agent["attestation_count"],
+            pq_check=False,
         )  # TODO: change this to always False after initial update
         failure.merge(quote_validation_failure)
-    # Nell' ELSE case non faccio niente per il momento e ritorno lo stesso Failure di prima, in modo da non far fallire la Quote, ma semplicemente saltare la validazione. 
-    # In futuro, quando implementeremo la validazione per mldsa, qui andrà inserita la chiamata alla funzione di validazione della Quote per mldsa.
-    # Non faccio nessuna merge di Failures
+    else:
+        # Caso MLDSA
+        quote_validation_failure = get_tpm_instance().check_quote(
+            agentAttestState,
+            agent["nonce"],
+            received_public_key,
+            quote,
+            agent["ak_tpm"],
+            agent["tpm_policy"],
+            ima_measurement_list,
+            runtime_policy,
+            algorithms.Hash(hash_alg),
+            ima_keyrings,
+            mb_measurement_list,
+            mb_policy,
+            compressed=(agent["supported_version"] == "1.0"),
+            count=agent["attestation_count"],
+            pq_check=True,
+        )  # TODO: change this to always False after initial update
+        failure.merge(quote_validation_failure)
+        
         
     print("\nDopo check quote\n")
 
-    agent["last_received_quote"] = int(time.time())
+    agent["last_received_quote"] = int(time.time())         # seconds passed from the UNIX epoch (from 01/01/1970 UTC)
 
     if not failure:
         agent["attestation_count"] += 1

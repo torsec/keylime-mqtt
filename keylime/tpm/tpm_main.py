@@ -131,6 +131,10 @@ class Tpm:
         quoteblob = base64.b64decode(quote_tokens[0])
         sigblob = base64.b64decode(quote_tokens[1])
         pcrblob = base64.b64decode(quote_tokens[2])
+        print("In am in _get_quote_parameters\n")
+        print("Quoteblob:\n%s\n", quoteblob)
+        print("Singblob:\n%s\n", sigblob)
+        print("Pcrblob:\n%s\n", pcrblob)
 
         if compressed:
             logger.warning("Decompressing quote data which is unsafe!")
@@ -159,7 +163,7 @@ class Tpm:
 
     @staticmethod
     def _tpm2_checkquote(
-        aikTpmFromRegistrar: str, quote: str, nonce: str, hash_alg: str, compressed: bool
+        aikTpmFromRegistrar: str, quote: str, nonce: str, hash_alg: str, compressed: bool, pq_check: bool = False
     ) -> Tuple[Dict[int, str], str]:
         """Write the files from data returned from tpm2_quote for running tpm2_checkquote
         :param aikTpmFromRegistrar: AIK used to generate the quote and is needed for verifying it now.
@@ -170,12 +174,20 @@ class Tpm:
         :returns: Returns the 'retout' from running tpm2_checkquote and True in case of success, None and False in case of error.
         This function throws an Exception on bad input.
         """
-        aikFromRegistrar = tpm2_objects.pubkey_from_tpm2b_public(
-            base64.b64decode(aikTpmFromRegistrar),
-        ).public_bytes(
-            crypto_serialization.Encoding.PEM,
-            crypto_serialization.PublicFormat.SubjectPublicKeyInfo,
-        )
+        print("\nI am in _tpm2_checkquote of tpm_main.py\n")
+        print("The aikTpmFromRegistrar is:\n%s\n" % aikTpmFromRegistrar)
+        print("The quote is: %s\n" % quote)
+        if pq_check == False:
+            aikFromRegistrar = tpm2_objects.pubkey_from_tpm2b_public(
+                base64.b64decode(aikTpmFromRegistrar),
+            ).public_bytes(
+                crypto_serialization.Encoding.PEM,
+                crypto_serialization.PublicFormat.SubjectPublicKeyInfo,
+            )
+            print("The aikFromRegistrar is:\n%s\n" % aikFromRegistrar)
+        else:
+            aikFromRegistrar = base64.b64decode(aikTpmFromRegistrar)
+            print("The aikFromRegistrar is:\n%s\n" % aikFromRegistrar)
 
         quoteblob, sigblob, pcrblob = Tpm._get_quote_parameters(quote, compressed)
 
@@ -445,6 +457,7 @@ class Tpm:
         count: int = -1,
         skip_pcr_check: bool = False,
         skip_clock_check: bool = False,
+        pq_check: bool = False,
     ) -> Failure:
         if tpm_policy is None:
             tpm_policy = {}
@@ -454,18 +467,20 @@ class Tpm:
 
         failure = Failure(Component.QUOTE_VALIDATION)
         
-        logger.debug("I am in check_quote of tpm_main.py\n")
-        logger.debug("The agent id is: %s\n", agentAttestState.get_agent_id())
+        logger.debug("I am in check_quote of tpm_main.py")
+        logger.debug("The agent id is: %s", agentAttestState.get_agent_id())
         logger.debug("The aik from registrar is: %s\n", aikTpmFromRegistrar)
         # logger.debug("The size of the aik from registrar is: %d\n", len(aikTpmFromRegistrar))
-        logger.debug("The nonce is: %s\n", nonce)
+        logger.debug("The nonce is: %s", nonce)
         # logger.debug("The quote is: %s\n", quote)
-        logger.debug("The size of the quote is: %d\n", len(quote))
-        logger.debug("The hash algorithm is: %s\n", hash_alg)
+        logger.debug("The size of the quote is: %d", len(quote))
+        logger.debug("The hash algorithm is: %s", hash_alg)
         logger.debug("The compressed flag is: %s\n", compressed)
+        
+        logger.debug("The pq_check is: %s\n", pq_check)
 
         # First and foremost, the quote needs to be validated
-        pcrs_dict, err = Tpm._tpm2_checkquote(aikTpmFromRegistrar, quote, nonce, str(hash_alg), compressed)
+        pcrs_dict, err = Tpm._tpm2_checkquote(aikTpmFromRegistrar, quote, nonce, str(hash_alg), compressed, pq_check=pq_check)
         if err:
             # If the quote validation fails we will skip all other steps therefore this failure is irrecoverable.
             failure.add_event("quote_validation", {"message": "Quote data validation", "error": err}, False)
