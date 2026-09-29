@@ -1,6 +1,10 @@
+import base64
+
 from keylime import keylime_logging
 from keylime.models import RegistrarAgent
 from keylime.web.base import Controller
+
+from keylime.cmd.convert_pem import tpmt_public_rsa_to_pem
 
 logger = keylime_logging.init_logging("registrar")
 
@@ -42,10 +46,18 @@ class AgentsController(Controller):
 #        print("\nQuesto e' l'aik_tpm (in hexadecimal):\n")
 #        print(''.join(f'\\x{byte:02x}' for byte in agent.aik_tpm))
 
-#        print("\nQuesto e' l'ek_tpm (bytestring):\n")
-#        print(agent.ek_tpm)
-#        print("\nQuesto e' l'ek_tpm (in hexadecimal):\n")
-#        print(''.join(f'\\x{byte:02x}' for byte in agent.ek_tpm))
+        print("\nThis is the ek_tpm (in bytestring):\n")
+        print(agent.ek_tpm)
+        print("\nThis is the ek_tpm (in hexadecimal):\n")
+        print(''.join(f'\\x{byte:02x}' for byte in agent.ek_tpm))
+        
+        ek_pem_hex = ''.join(f'\\x{byte:02x}' for byte in agent.ek_tpm)
+        print(ek_pem_hex)
+        
+        pem = tpmt_public_rsa_to_pem(agent.ek_tpm)
+
+        print("\nThis is the ek_tpm (in PEM):\n")
+        print(pem)
 
 #        print("\n\n")
 
@@ -58,6 +70,16 @@ class AgentsController(Controller):
             self.respond(400, "Could not register agent with invalid data")
             return
         print("Do I arrive here?")
+        print("The agent is: ", agent, "\n")
+        print("The ek_tpm of the agent is: ", agent.ek_tpm, "\n")
+        
+        # Encode the ek_tpm in base64 and print it
+        # As recored in the DB
+        data = agent.ek_tpm
+        encoded = base64.b64encode(data).decode('ascii')
+        print("The encoded ek_tpm is:\n", encoded, "\n")
+        
+        
         agent.commit_changes()
         print("Do I arrive here?(after commit)\n")
         self.respond(200, "Success", {"blob": challenge})
