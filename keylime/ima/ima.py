@@ -226,6 +226,7 @@ def _process_measurement_list(
     boot_aggregates: Optional[Dict[str, List[str]]] = None,
 ) -> Tuple[str, Failure]:
     failure = Failure(Component.IMA)
+    print("The hash algorithm is:", hash_alg)
     running_hash = agentAttestState.get_pcr_state(config.IMA_PCR, hash_alg)
     assert running_hash
 
