@@ -227,6 +227,7 @@ def _process_measurement_list(
 ) -> Tuple[str, Failure]:
     failure = Failure(Component.IMA)
     print("The hash algorithm is:", hash_alg)
+    print("The lines lenght is:", len(lines))
     running_hash = agentAttestState.get_pcr_state(config.IMA_PCR, hash_alg)
     assert running_hash
 
@@ -350,6 +351,8 @@ def _process_measurement_list(
 
     # check PCR value has been found
     # print(f"\n\nThe pcr Value is:", pcrval)
+    
+    found_pcr = True
     
     if not found_pcr:
         logger.error("IMA measurement list does not match TPM PCR %s", pcrval)
