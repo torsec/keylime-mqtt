@@ -53,11 +53,12 @@ class AgentsController(Controller):
         
         ek_pem_hex = ''.join(f'\\x{byte:02x}' for byte in agent.ek_tpm)
         print(ek_pem_hex)
-        
-        pem = tpmt_public_rsa_to_pem(agent.ek_tpm)
 
-        print("\nThis is the ek_tpm (in PEM):\n")
-        print(pem)
+        # # This PEM is only for RSA
+        # pem = tpmt_public_rsa_to_pem(agent.ek_tpm)
+
+        # print("\nThis is the ek_tpm (in PEM):\n")
+        # print(pem)
 
 #        print("\n\n")
 
